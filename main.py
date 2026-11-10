@@ -846,21 +846,28 @@ test_stats_page()
 # --------------------------------------------------
 
 set_website_title("Deer Hunting Tracker")
-set_website_style("simple")
+set_website_style("none")
 set_website_framed(False)
 
 add_website_css("""
+html, body {
+    background-color: #17251b !important;
+    color: #eee8d5 !important;
+    min-height: 100%;
+}
+
 #drafter-body-- {
-    background-color: #17251b;
-    color: #eee8d5;
+    background-color: #17251b !important;
+    color: #eee8d5 !important;
     font-family: Georgia, serif;
     max-width: 1100px;
     margin: auto;
     padding: 30px;
+    line-height: 1.7;
 }
 
 #drafter-body-- h1 {
-    color: #d6bd8a;
+    color: #d6bd8a !important;
     font-size: 2.5em;
     text-align: center;
     letter-spacing: 2px;
@@ -869,25 +876,27 @@ add_website_css("""
 }
 
 #drafter-body-- h2 {
-    color: #c5a875;
+    color: #c5a875 !important;
     border-bottom: 1px solid #536447;
     padding-bottom: 8px;
     margin-top: 28px;
 }
 
 #drafter-body-- h3 {
-    color: #d6bd8a;
+    color: #d6bd8a !important;
 }
 
 #drafter-body-- p,
 #drafter-body-- li,
-#drafter-body-- label {
+#drafter-body-- label,
+#drafter-body-- span,
+#drafter-body-- div {
     color: #eee8d5;
 }
 
 #drafter-body-- button {
-    background-color: #405b3c;
-    color: #ffffff;
+    background-color: #405b3c !important;
+    color: #ffffff !important;
     border: 1px solid #75845c;
     border-radius: 7px;
     padding: 10px 16px;
@@ -896,29 +905,25 @@ add_website_css("""
 }
 
 #drafter-body-- button:hover {
-    background-color: #65764b;
+    background-color: #65764b !important;
 }
 
 #drafter-body-- input,
 #drafter-body-- textarea,
 #drafter-body-- select {
-    background-color: #eee8d5;
-    color: #263326;
+    background-color: #eee8d5 !important;
+    color: #263326 !important;
     border: 1px solid #9b895f;
     border-radius: 5px;
     padding: 9px;
 }
 
 #drafter-body-- a {
-    color: #d6bd8a;
+    color: #d6bd8a !important;
 }
 
 #drafter-body-- hr {
     border-color: #65764b;
-}
-
-#drafter-body-- {
-    line-height: 1.7;
 }
 
 @media (max-width: 650px) {
