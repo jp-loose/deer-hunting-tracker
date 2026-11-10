@@ -52,7 +52,7 @@ def page_header(title: str, subtitle: str) -> list:
 
 
 def navigation() -> list:
-    """Create the navigation buttons used throughout the website."""
+    """Create navigation buttons for the website."""
 
     return [
         Button("Home", "index"),
@@ -126,7 +126,7 @@ def search_sightings(
 def calculate_buck_statistics(
     sightings: list[Sighting]
 ) -> tuple[int, float, int]:
-    """Calculate the buck count, average points, and highest points."""
+    """Calculate buck count, average points, and highest points."""
 
     buck_count = 0
     total_points = 0
@@ -149,7 +149,7 @@ def calculate_buck_statistics(
 
 
 def format_sighting(sighting: Sighting) -> str:
-    """Format one sighting for display on the website."""
+    """Format one sighting for display."""
 
     if sighting.buck_points == 0:
         deer_type = "Doe or unidentified deer"
@@ -224,7 +224,7 @@ def index(state: State) -> Page:
 
 @route
 def sightings_page(state: State) -> Page:
-    """Display all sightings or sightings from one location."""
+    """Display sightings from all or one location."""
 
     content = page_header(
         "ALL DEER SIGHTINGS",
@@ -241,7 +241,6 @@ def sightings_page(state: State) -> Page:
     content.append(
         "Currently viewing: " + state.selected_location
     )
-
     content.append("\n")
 
     if len(matching_sightings) == 0:
@@ -262,7 +261,7 @@ def sightings_page(state: State) -> Page:
 
 @route
 def add_sighting(state: State) -> Page:
-    """Display the form for recording a new deer sighting."""
+    """Display the form for recording a deer sighting."""
 
     content = page_header(
         "RECORD A DEER SIGHTING",
@@ -342,7 +341,6 @@ def locations_page(state: State) -> Page:
     content += navigation()
 
     locations = get_locations(state)
-
     options = ["All Locations"] + locations
 
     if state.selected_location not in options:
@@ -844,19 +842,108 @@ test_stats_page()
 
 
 # --------------------------------------------------
-# WEBSITE INFORMATION
+# WEBSITE APPEARANCE
 # --------------------------------------------------
 
 set_website_title("Deer Hunting Tracker")
+set_website_style("simple")
+set_website_framed(False)
+
+add_website_css("""
+#drafter-body-- {
+    background-color: #17251b;
+    color: #eee8d5;
+    font-family: Georgia, serif;
+    max-width: 1100px;
+    margin: auto;
+    padding: 30px;
+}
+
+#drafter-body-- h1 {
+    color: #d6bd8a;
+    font-size: 2.5em;
+    text-align: center;
+    letter-spacing: 2px;
+    border-bottom: 2px solid #65764b;
+    padding-bottom: 15px;
+}
+
+#drafter-body-- h2 {
+    color: #c5a875;
+    border-bottom: 1px solid #536447;
+    padding-bottom: 8px;
+    margin-top: 28px;
+}
+
+#drafter-body-- h3 {
+    color: #d6bd8a;
+}
+
+#drafter-body-- p,
+#drafter-body-- li,
+#drafter-body-- label {
+    color: #eee8d5;
+}
+
+#drafter-body-- button {
+    background-color: #405b3c;
+    color: #ffffff;
+    border: 1px solid #75845c;
+    border-radius: 7px;
+    padding: 10px 16px;
+    margin: 5px;
+    font-weight: bold;
+}
+
+#drafter-body-- button:hover {
+    background-color: #65764b;
+}
+
+#drafter-body-- input,
+#drafter-body-- textarea,
+#drafter-body-- select {
+    background-color: #eee8d5;
+    color: #263326;
+    border: 1px solid #9b895f;
+    border-radius: 5px;
+    padding: 9px;
+}
+
+#drafter-body-- a {
+    color: #d6bd8a;
+}
+
+#drafter-body-- hr {
+    border-color: #65764b;
+}
+
+#drafter-body-- {
+    line-height: 1.7;
+}
+
+@media (max-width: 650px) {
+    #drafter-body-- {
+        padding: 15px;
+    }
+
+    #drafter-body-- h1 {
+        font-size: 1.8em;
+    }
+}
+""")
+
+
+# --------------------------------------------------
+# WEBSITE INFORMATION
+# --------------------------------------------------
 
 set_site_information(
     "Your Name",
     "A personal deer hunting journal for tracking sightings, "
     "hunting locations, trips, and buck statistics.",
     [],
-    "The website was planned around a hunting dashboard, "
-    "sighting journal, location filter, search tool, hunting "
-    "trip log, and statistics page.",
+    "The website includes a hunting dashboard, sighting journal, "
+    "location filter, search tool, hunting trip log, and statistics.",
     []
 )
 
