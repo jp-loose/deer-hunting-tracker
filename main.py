@@ -10,6 +10,7 @@ from drafter import *
 @dataclass
 class Sighting:
     """Store information about one deer sighting."""
+
     location: str
     buck_points: int
     time_seen: str
@@ -19,6 +20,7 @@ class Sighting:
 @dataclass
 class Hunt:
     """Store information about one hunting trip."""
+
     location: str
     date: str
     notes: str
@@ -26,7 +28,8 @@ class Hunt:
 
 @dataclass
 class State:
-    """Store the information used by the website."""
+    """Store all information used by the website."""
+
     sightings: list[Sighting]
     selected_location: str
     search_text: str
@@ -38,8 +41,33 @@ class State:
 # HELPER FUNCTIONS
 # --------------------------------------------------
 
+def page_header(title: str, subtitle: str) -> list:
+    """Create a consistent heading for each website page."""
+
+    return [
+        Header(title),
+        subtitle,
+        "\n"
+    ]
+
+
+def navigation() -> list:
+    """Create the navigation buttons used throughout the website."""
+
+    return [
+        Button("Home", "index"),
+        Button("Sightings", "sightings_page"),
+        Button("Add Sighting", "add_sighting"),
+        Button("Locations", "locations_page"),
+        Button("Search", "search_page"),
+        Button("Log Hunt", "log_hunt"),
+        Button("Statistics", "stats_page"),
+        "\n"
+    ]
+
+
 def get_locations(state: State) -> list[str]:
-    """Return a list of unique hunting locations."""
+    """Return an alphabetically sorted list of hunting locations."""
 
     locations = []
 
@@ -55,282 +83,361 @@ def get_locations(state: State) -> list[str]:
     return locations
 
 
+def get_matching_sightings(
+    state: State,
+    location: str
+) -> list[Sighting]:
+    """Return sightings from the selected location."""
+
+    matching_sightings = []
+
+    for sighting in state.sightings:
+        if location == "All Locations":
+            matching_sightings.append(sighting)
+        elif sighting.location == location:
+            matching_sightings.append(sighting)
+
+    return matching_sightings
+
+
+def search_sightings(
+    state: State,
+    search_text: str
+) -> list[Sighting]:
+    """Find sightings that match the search text."""
+
+    matching_sightings = []
+    search_text = search_text.lower()
+
+    for sighting in state.sightings:
+        searchable_text = (
+            sighting.location + " "
+            + str(sighting.buck_points) + " "
+            + sighting.time_seen + " "
+            + sighting.notes
+        )
+
+        if search_text in searchable_text.lower():
+            matching_sightings.append(sighting)
+
+    return matching_sightings
+
+
+def calculate_buck_statistics(
+    sightings: list[Sighting]
+) -> tuple[int, float, int]:
+    """Calculate the buck count, average points, and highest points."""
+
+    buck_count = 0
+    total_points = 0
+    highest_points = 0
+
+    for sighting in sightings:
+        if sighting.buck_points > 0:
+            buck_count += 1
+            total_points += sighting.buck_points
+
+            if sighting.buck_points > highest_points:
+                highest_points = sighting.buck_points
+
+    if buck_count > 0:
+        average_points = total_points / buck_count
+    else:
+        average_points = 0.0
+
+    return buck_count, average_points, highest_points
+
+
+def format_sighting(sighting: Sighting) -> str:
+    """Format one sighting for display on the website."""
+
+    if sighting.buck_points == 0:
+        deer_type = "Doe or unidentified deer"
+    else:
+        deer_type = str(sighting.buck_points) + "-point buck"
+
+    return (
+        "Location: " + sighting.location
+        + " | Deer: " + deer_type
+        + " | Time: " + sighting.time_seen
+        + " | Notes: " + sighting.notes
+    )
+
+
+def format_hunt(hunt: Hunt) -> str:
+    """Format one hunting trip for display."""
+
+    return (
+        "Location: " + hunt.location
+        + " | Date: " + hunt.date
+        + " | Notes: " + hunt.notes
+    )
+
+
 # --------------------------------------------------
 # HOME PAGE
 # --------------------------------------------------
 
 @route
 def index(state: State) -> Page:
-    """Display the home dashboard."""
+    """Display the main dashboard."""
 
-    return Page(state, [
-        Header("DEER HUNTING TRACKER"),
-        Text("Your personal deer hunting journal."),
-        HorizontalRule(),
+    content = page_header(
+        "DEER HUNTING TRACKER",
+        "Your personal hunting journal and deer management log."
+    )
 
-        Header("Dashboard"),
-        Text("Total deer sightings: " + str(len(state.sightings))),
-        Text("Hunts logged: " + str(state.total_hunts)),
-        Text("Hunting locations: " + str(len(get_locations(state)))),
+    content += navigation()
 
-        HorizontalRule(),
-        Header("Navigation"),
+    buck_count, average_points, highest_points = (
+        calculate_buck_statistics(state.sightings)
+    )
 
-        Link("View All Sightings", "sightings_page"),
-        Link("Add a Sighting", "add_sighting"),
-        Link("Hunting Locations", "locations_page"),
-        Link("Search Sightings", "search_page"),
-        Link("Log a Hunt", "log_hunt"),
-        Link("Statistics", "stats_page")
-    ])
+    content += [
+        Header("Your Hunting Dashboard"),
+        "Total deer sightings: " + str(len(state.sightings)),
+        "Total hunting trips: " + str(state.total_hunts),
+        "Bucks recorded: " + str(buck_count),
+        "Average buck points: " + str(round(average_points, 1)),
+        "Highest point buck: " + str(highest_points),
+        "\n",
+        Header("Quick Actions"),
+        Button("Record a Sighting", "add_sighting"),
+        Button("Log a Hunting Trip", "log_hunt"),
+        Button("View Your Sightings", "sightings_page"),
+        "\n",
+        Header("Recent Sightings")
+    ]
+
+    if len(state.sightings) == 0:
+        content.append("You have not recorded any sightings yet.")
+    else:
+        for sighting in state.sightings[-3:]:
+            content.append(format_sighting(sighting))
+
+    return Page(state, content)
 
 
 # --------------------------------------------------
-# VIEW SIGHTINGS
+# SIGHTINGS PAGE
 # --------------------------------------------------
 
 @route
 def sightings_page(state: State) -> Page:
-    """Display all recorded deer sightings."""
+    """Display all sightings or sightings from one location."""
 
-    contents = [
-        Header("All Deer Sightings"),
-        Link("Home", "index"),
-        HorizontalRule()
-    ]
+    content = page_header(
+        "ALL DEER SIGHTINGS",
+        "Review every deer recorded in your hunting journal."
+    )
 
-    if len(state.sightings) == 0:
-        contents.append(Text("No sightings recorded yet."))
+    content += navigation()
 
+    matching_sightings = get_matching_sightings(
+        state,
+        state.selected_location
+    )
+
+    content.append(
+        "Currently viewing: " + state.selected_location
+    )
+
+    content.append("\n")
+
+    if len(matching_sightings) == 0:
+        content.append("No sightings have been recorded here.")
     else:
-        for number, sighting in enumerate(state.sightings):
-            contents.append(Header("Sighting " + str(number + 1)))
-            contents.append(Text("Location: " + sighting.location))
-            contents.append(Text(
-                "Antler points: " + str(sighting.buck_points)
-            ))
-            contents.append(Text("Time: " + sighting.time_seen))
-            contents.append(Text("Notes: " + sighting.notes))
-            contents.append(HorizontalRule())
+        for sighting in matching_sightings:
+            content.append(format_sighting(sighting))
+            content.append("\n")
 
-    contents.append(Link("Add Another Sighting", "add_sighting"))
+    content.append(Button("Add a Sighting", "add_sighting"))
 
-    return Page(state, contents)
+    return Page(state, content)
 
 
 # --------------------------------------------------
-# ADD SIGHTING
+# ADD SIGHTING PAGE
 # --------------------------------------------------
 
 @route
 def add_sighting(state: State) -> Page:
-    """Display the form for adding a deer sighting."""
+    """Display the form for recording a new deer sighting."""
 
-    return Page(state, [
-        Header("Add a Deer Sighting"),
-        Link("Home", "index"),
-        HorizontalRule(),
+    content = page_header(
+        "RECORD A DEER SIGHTING",
+        "Add a new deer observation to your hunting journal."
+    )
 
-        Text("Hunting Location:"),
-        TextBox("location"),
+    content += navigation()
 
-        Text("Buck Antler Points:"),
-        TextBox("buck_points"),
-
-        Text("Time Seen:"),
-        TextBox("time_seen"),
-
-        Text("Additional Notes:"),
-        TextArea("notes"),
-
+    content += [
+        Header("Sighting Information"),
+        "Hunting location:",
+        TextBox("location", ""),
+        "\n",
+        "Number of antler points (enter 0 for a doe or unknown):",
+        TextBox("buck_points", 0, "number"),
+        "\n",
+        "Time of sighting:",
+        TextBox("time_seen", ""),
+        "\n",
+        "Additional notes:",
+        TextArea("notes", ""),
+        "\n",
         Button("Save Sighting", "save_sighting")
-    ])
+    ]
+
+    return Page(state, content)
 
 
 @route
-def save_sighting(state: State, location: str,
-                  buck_points: str, time_seen: str,
-                  notes: str) -> Page:
+def save_sighting(
+    state: State,
+    location: str,
+    buck_points: int,
+    time_seen: str,
+    notes: str
+) -> Page:
     """Save a new deer sighting."""
 
-    location = location.strip()
-    time_seen = time_seen.strip()
+    if location.strip() == "":
+        location = "Unknown Location"
 
-    try:
-        points = int(buck_points)
-    except ValueError:
-        return Page(state, [
-            Header("Invalid Antler Points"),
-            Text("Please enter a whole number."),
-            Link("Try Again", "add_sighting")
-        ])
+    if buck_points < 0:
+        buck_points = 0
 
-    if location == "" or time_seen == "":
-        return Page(state, [
-            Header("Missing Information"),
-            Text("Please enter a location and time."),
-            Link("Try Again", "add_sighting")
-        ])
+    if time_seen.strip() == "":
+        time_seen = "Not recorded"
 
-    if points < 0:
-        return Page(state, [
-            Header("Invalid Antler Points"),
-            Text("Antler points cannot be negative."),
-            Link("Try Again", "add_sighting")
-        ])
+    if notes.strip() == "":
+        notes = "No additional notes"
 
     new_sighting = Sighting(
         location,
-        points,
+        buck_points,
         time_seen,
-        notes.strip()
+        notes
     )
 
     state.sightings.append(new_sighting)
+    state.selected_location = "All Locations"
 
-    return Page(state, [
-        Header("Sighting Saved!"),
-        Text("Your deer sighting has been recorded."),
-        Text("Location: " + location),
-        Text("Antler points: " + str(points)),
-        Link("View All Sightings", "sightings_page"),
-        Link("Add Another Sighting", "add_sighting"),
-        Link("Home", "index")
-    ])
+    return sightings_page(state)
 
 
 # --------------------------------------------------
-# HUNTING LOCATIONS
+# LOCATIONS PAGE
 # --------------------------------------------------
 
 @route
 def locations_page(state: State) -> Page:
-    """Display hunting locations and their sightings."""
+    """Display available hunting locations."""
+
+    content = page_header(
+        "HUNTING LOCATIONS",
+        "Explore the places where you have hunted and seen deer."
+    )
+
+    content += navigation()
 
     locations = get_locations(state)
+
     options = ["All Locations"] + locations
 
     if state.selected_location not in options:
         state.selected_location = "All Locations"
 
-    contents = [
-        Header("Hunting Locations"),
-        Link("Home", "index"),
-        HorizontalRule(),
-        Text("Choose a location to view its sightings:"),
-
-        SelectBox("location_choice", options),
-
+    content += [
+        Header("Choose a Location"),
+        "Select a location to view its sightings:",
+        SelectBox(
+            "location_choice",
+            options,
+            state.selected_location
+        ),
+        "\n",
         Button("View Location", "filter_location"),
-        HorizontalRule()
+        "\n",
+        Header("Saved Locations")
     ]
 
-    matching_sightings = []
-
-    for sighting in state.sightings:
-        if (state.selected_location == "All Locations"
-                or sighting.location == state.selected_location):
-            matching_sightings.append(sighting)
-
-    if len(matching_sightings) == 0:
-        contents.append(Text("No sightings at this location."))
-
+    if len(locations) == 0:
+        content.append("No hunting locations have been recorded.")
     else:
-        for sighting in matching_sightings:
-            contents.append(Text("Location: " + sighting.location))
-            contents.append(Text(
-                "Antler points: " + str(sighting.buck_points)
-            ))
-            contents.append(Text("Time: " + sighting.time_seen))
-            contents.append(Text("Notes: " + sighting.notes))
-            contents.append(HorizontalRule())
+        for location in locations:
+            content.append(location)
 
-    return Page(state, contents)
+    return Page(state, content)
 
 
 @route
-def filter_location(state: State, location_choice: str) -> Page:
-    """Filter sightings by selected location."""
+def filter_location(
+    state: State,
+    location_choice: str
+) -> Page:
+    """Change the selected hunting location."""
 
     state.selected_location = location_choice
 
-    return locations_page(state)
+    return sightings_page(state)
 
 
 # --------------------------------------------------
-# SEARCH SIGHTINGS
+# SEARCH PAGE
 # --------------------------------------------------
 
 @route
 def search_page(state: State) -> Page:
-    """Display the search page."""
+    """Display the sighting search page."""
 
-    contents = [
-        Header("Search Deer Sightings"),
-        Link("Home", "index"),
-        HorizontalRule(),
+    content = page_header(
+        "SEARCH SIGHTINGS",
+        "Find a deer using its location, time, notes, or points."
+    )
 
-        Text("Search by location, time, notes, or antler points:"),
+    content += navigation()
 
-        TextBox("search_text"),
+    content += [
+        Header("Search Your Journal"),
+        "Enter a location, number of points, time, or keyword:",
+        TextBox("search_text", state.search_text),
+        "\n",
         Button("Search", "run_search"),
-        HorizontalRule()
+        Button("Clear Search", "clear_search"),
+        "\n",
+        Header("Search Results")
     ]
 
-    if state.search_text != "":
-        results = []
+    matching_sightings = search_sightings(
+        state,
+        state.search_text
+    )
 
-        for sighting in state.sightings:
-            searchable_text = (
-                sighting.location + " "
-                + sighting.time_seen + " "
-                + sighting.notes + " "
-                + str(sighting.buck_points)
-            )
+    if state.search_text == "":
+        content.append("Enter something above to search your journal.")
+    elif len(matching_sightings) == 0:
+        content.append("No matching sightings were found.")
+    else:
+        for sighting in matching_sightings:
+            content.append(format_sighting(sighting))
+            content.append("\n")
 
-            if state.search_text.lower() in searchable_text.lower():
-                results.append(sighting)
-
-        contents.append(Header(
-            "Search Results: " + str(len(results))
-        ))
-
-        if len(results) == 0:
-            contents.append(Text("No matching sightings found."))
-
-        else:
-            for sighting in results:
-                contents.append(Text(
-                    "Location: " + sighting.location
-                ))
-                contents.append(Text(
-                    "Antler points: " + str(sighting.buck_points)
-                ))
-                contents.append(Text(
-                    "Time: " + sighting.time_seen
-                ))
-                contents.append(Text(
-                    "Notes: " + sighting.notes
-                ))
-                contents.append(HorizontalRule())
-
-    contents.append(Link("Clear Search", "clear_search"))
-
-    return Page(state, contents)
+    return Page(state, content)
 
 
 @route
 def run_search(state: State, search_text: str) -> Page:
-    """Save and run the search."""
+    """Save the search text and display matching results."""
 
-    state.search_text = search_text.strip()
+    state.search_text = search_text
 
     return search_page(state)
 
 
 @route
 def clear_search(state: State) -> Page:
-    """Clear the search."""
+    """Clear the current search."""
 
     state.search_text = ""
 
@@ -338,159 +445,426 @@ def clear_search(state: State) -> Page:
 
 
 # --------------------------------------------------
-# LOG A HUNT
+# HUNTING TRIP PAGE
 # --------------------------------------------------
 
 @route
 def log_hunt(state: State) -> Page:
-    """Display the hunting trip form and history."""
+    """Display the form for logging a hunting trip."""
 
-    contents = [
-        Header("Log a Hunting Trip"),
-        Link("Home", "index"),
-        HorizontalRule(),
+    content = page_header(
+        "LOG A HUNTING TRIP",
+        "Keep a record of your time spent in the woods."
+    )
 
-        Text("Hunting Location:"),
-        TextBox("hunt_location"),
+    content += navigation()
 
-        Text("Date of Hunt:"),
-        TextBox("hunt_date"),
-
-        Text("Hunt Notes:"),
-        TextArea("hunt_notes"),
-
-        Button("Save Hunt", "save_hunt"),
-        HorizontalRule(),
-
-        Header("Previous Hunts")
+    content += [
+        Header("Hunting Trip Information"),
+        "Hunting location:",
+        TextBox("location", ""),
+        "\n",
+        "Date of hunt:",
+        TextBox("date", ""),
+        "\n",
+        "Hunting notes:",
+        TextArea("notes", ""),
+        "\n",
+        Button("Save Hunting Trip", "save_hunt"),
+        "\n",
+        Header("Previous Hunting Trips")
     ]
 
     if len(state.hunts) == 0:
-        contents.append(Text("No hunts have been logged."))
-
+        content.append("You have not logged any hunting trips.")
     else:
         for hunt in state.hunts:
-            contents.append(Text("Location: " + hunt.location))
-            contents.append(Text("Date: " + hunt.date))
-            contents.append(Text("Notes: " + hunt.notes))
-            contents.append(HorizontalRule())
+            content.append(format_hunt(hunt))
+            content.append("\n")
 
-    return Page(state, contents)
+    return Page(state, content)
 
 
 @route
-def save_hunt(state: State, hunt_location: str,
-              hunt_date: str, hunt_notes: str) -> Page:
-    """Save a hunting trip."""
+def save_hunt(
+    state: State,
+    location: str,
+    date: str,
+    notes: str
+) -> Page:
+    """Save a hunting trip and update the hunt count."""
 
-    hunt_location = hunt_location.strip()
-    hunt_date = hunt_date.strip()
+    if location.strip() == "":
+        location = "Unknown Location"
 
-    if hunt_location == "" or hunt_date == "":
-        return Page(state, [
-            Header("Missing Information"),
-            Text("Please enter a location and date."),
-            Link("Try Again", "log_hunt")
-        ])
+    if date.strip() == "":
+        date = "Date not recorded"
 
-    new_hunt = Hunt(
-        hunt_location,
-        hunt_date,
-        hunt_notes.strip()
-    )
+    if notes.strip() == "":
+        notes = "No additional notes"
+
+    new_hunt = Hunt(location, date, notes)
 
     state.hunts.append(new_hunt)
-    state.total_hunts = state.total_hunts + 1
+    state.total_hunts += 1
 
-    return Page(state, [
-        Header("Hunt Successfully Logged!"),
-        Text("Your hunting trip has been saved."),
-        Text("Location: " + hunt_location),
-        Text("Date: " + hunt_date),
-        Link("View Hunting Trips", "log_hunt"),
-        Link("Home", "index")
-    ])
+    return log_hunt(state)
 
 
 # --------------------------------------------------
-# STATISTICS
+# STATISTICS PAGE
 # --------------------------------------------------
 
 @route
 def stats_page(state: State) -> Page:
-    """Display hunting statistics."""
+    """Display hunting and deer sighting statistics."""
 
-    total_sightings = len(state.sightings)
-    locations = get_locations(state)
+    content = page_header(
+        "HUNTING STATISTICS",
+        "Review your hunting activity and deer observations."
+    )
 
-    buck_sightings = 0
-    total_points = 0
-    highest_points = 0
+    content += navigation()
 
-    for sighting in state.sightings:
-        if sighting.buck_points > 0:
-            buck_sightings = buck_sightings + 1
+    buck_count, average_points, highest_points = (
+        calculate_buck_statistics(state.sightings)
+    )
 
-        total_points = total_points + sighting.buck_points
-
-        if sighting.buck_points > highest_points:
-            highest_points = sighting.buck_points
-
-    if total_sightings > 0:
-        average_points = total_points / total_sightings
-    else:
-        average_points = 0
-
-    contents = [
-        Header("Hunting Statistics"),
-        Link("Home", "index"),
-        HorizontalRule(),
-
-        Header("Overall Statistics"),
-        Text("Total sightings: " + str(total_sightings)),
-        Text("Total hunts: " + str(state.total_hunts)),
-        Text("Unique hunting locations: " + str(len(locations))),
-        Text("Buck sightings: " + str(buck_sightings)),
-        Text("Average antler points: " + str(round(average_points, 2))),
-        Text("Highest antler point count: " + str(highest_points)),
-
-        HorizontalRule(),
-        Header("Sightings By Location")
+    content += [
+        Header("Hunting Activity"),
+        "Total hunting trips: " + str(state.total_hunts),
+        "Total deer sightings: " + str(len(state.sightings)),
+        "\n",
+        Header("Buck Statistics"),
+        "Total bucks recorded: " + str(buck_count),
+        "Average antler points: " + str(round(average_points, 1)),
+        "Highest point buck: " + str(highest_points),
+        "\n",
+        Header("Location Statistics")
     ]
 
-    if len(locations) == 0:
-        contents.append(Text("No hunting locations recorded."))
+    locations = get_locations(state)
 
+    if len(locations) == 0:
+        content.append("No hunting locations have been recorded.")
     else:
         for location in locations:
-            location_count = 0
+            location_sightings = get_matching_sightings(
+                state,
+                location
+            )
 
-            for sighting in state.sightings:
-                if sighting.location == location:
-                    location_count = location_count + 1
+            content.append(
+                location + ": "
+                + str(len(location_sightings))
+                + " deer sightings"
+            )
 
-            contents.append(Text(
-                location + ": " + str(location_count) + " sightings"
-            ))
-
-    contents.append(HorizontalRule())
-    contents.append(Header("Hunt History"))
-
-    if len(state.hunts) == 0:
-        contents.append(Text("No hunting trips recorded."))
-
-    else:
-        for hunt in state.hunts:
-            contents.append(Text(
-                hunt.date + " - " + hunt.location
-            ))
-
-    return Page(state, contents)
+    return Page(state, content)
 
 
 # --------------------------------------------------
-# START SERVER
+# UNIT TESTS
 # --------------------------------------------------
 
-start_server(State([], "All Locations", "", 0, []))
+def test_get_locations() -> None:
+    """Test that unique hunting locations are returned."""
 
+    state = State(
+        [
+            Sighting("Oak Ridge", 8, "6 AM", "Large buck"),
+            Sighting("North Field", 6, "7 AM", "Small buck"),
+            Sighting("Oak Ridge", 10, "8 AM", "Wide buck")
+        ],
+        "All Locations",
+        "",
+        0,
+        [Hunt("South Woods", "November 10", "Morning hunt")]
+    )
+
+    assert_equal(
+        get_locations(state),
+        ["North Field", "Oak Ridge", "South Woods"]
+    )
+
+
+def test_get_matching_sightings() -> None:
+    """Test that sightings are filtered by location."""
+
+    state = State(
+        [
+            Sighting("Oak Ridge", 8, "6 AM", "Large buck"),
+            Sighting("North Field", 6, "7 AM", "Small buck")
+        ],
+        "All Locations",
+        "",
+        0,
+        []
+    )
+
+    assert_equal(
+        get_matching_sightings(state, "Oak Ridge"),
+        [Sighting("Oak Ridge", 8, "6 AM", "Large buck")]
+    )
+
+
+def test_search_sightings() -> None:
+    """Test that searching finds matching sightings."""
+
+    state = State(
+        [
+            Sighting("Oak Ridge", 8, "6 AM", "Large buck"),
+            Sighting("North Field", 6, "7 AM", "Small buck")
+        ],
+        "All Locations",
+        "",
+        0,
+        []
+    )
+
+    assert_equal(
+        search_sightings(state, "large"),
+        [Sighting("Oak Ridge", 8, "6 AM", "Large buck")]
+    )
+
+
+def test_calculate_buck_statistics() -> None:
+    """Test the buck count, average, and highest antler points."""
+
+    sightings = [
+        Sighting("Oak Ridge", 8, "6 AM", "Large buck"),
+        Sighting("North Field", 6, "7 AM", "Small buck"),
+        Sighting("South Woods", 0, "8 AM", "Doe")
+    ]
+
+    assert_equal(
+        calculate_buck_statistics(sightings),
+        (2, 7.0, 8)
+    )
+
+
+def test_index() -> None:
+    """Test that the home page is displayed."""
+
+    state = State([], "All Locations", "", 0, [])
+    page = index(state)
+
+    assert_equal(page.state, state)
+    assert_equal(page.content[0], Header("DEER HUNTING TRACKER"))
+
+
+def test_sightings_page() -> None:
+    """Test that the sightings page is displayed."""
+
+    state = State([], "All Locations", "", 0, [])
+    page = sightings_page(state)
+
+    assert_equal(page.state, state)
+    assert_equal(page.content[0], Header("ALL DEER SIGHTINGS"))
+
+
+def test_add_sighting() -> None:
+    """Test that the add sighting page is displayed."""
+
+    state = State([], "All Locations", "", 0, [])
+    page = add_sighting(state)
+
+    assert_equal(page.state, state)
+    assert_equal(page.content[0], Header("RECORD A DEER SIGHTING"))
+
+
+def test_save_sighting() -> None:
+    """Test that a new sighting is saved."""
+
+    state = State([], "All Locations", "", 0, [])
+
+    page = save_sighting(
+        state,
+        "Oak Ridge",
+        8,
+        "6 AM",
+        "Large buck"
+    )
+
+    expected = State(
+        [Sighting("Oak Ridge", 8, "6 AM", "Large buck")],
+        "All Locations",
+        "",
+        0,
+        []
+    )
+
+    assert_equal(page.state, expected)
+
+
+def test_locations_page() -> None:
+    """Test that the locations page is displayed."""
+
+    state = State([], "All Locations", "", 0, [])
+    page = locations_page(state)
+
+    assert_equal(page.state, state)
+    assert_equal(page.content[0], Header("HUNTING LOCATIONS"))
+
+
+def test_filter_location() -> None:
+    """Test that selecting a location changes the state."""
+
+    state = State(
+        [
+            Sighting("Oak Ridge", 8, "6 AM", "Large buck"),
+            Sighting("North Field", 6, "7 AM", "Small buck")
+        ],
+        "All Locations",
+        "",
+        0,
+        []
+    )
+
+    page = filter_location(state, "Oak Ridge")
+
+    expected = State(
+        [
+            Sighting("Oak Ridge", 8, "6 AM", "Large buck"),
+            Sighting("North Field", 6, "7 AM", "Small buck")
+        ],
+        "Oak Ridge",
+        "",
+        0,
+        []
+    )
+
+    assert_equal(page.state, expected)
+
+
+def test_search_page() -> None:
+    """Test that the search page is displayed."""
+
+    state = State([], "All Locations", "", 0, [])
+    page = search_page(state)
+
+    assert_equal(page.state, state)
+    assert_equal(page.content[0], Header("SEARCH SIGHTINGS"))
+
+
+def test_run_search() -> None:
+    """Test that the search text is saved."""
+
+    state = State([], "All Locations", "", 0, [])
+
+    page = run_search(state, "Oak Ridge")
+
+    expected = State(
+        [],
+        "All Locations",
+        "Oak Ridge",
+        0,
+        []
+    )
+
+    assert_equal(page.state, expected)
+
+
+def test_clear_search() -> None:
+    """Test that the search text is cleared."""
+
+    state = State([], "All Locations", "Oak Ridge", 0, [])
+
+    page = clear_search(state)
+
+    expected = State([], "All Locations", "", 0, [])
+
+    assert_equal(page.state, expected)
+
+
+def test_log_hunt() -> None:
+    """Test that the hunting trip page is displayed."""
+
+    state = State([], "All Locations", "", 0, [])
+    page = log_hunt(state)
+
+    assert_equal(page.state, state)
+    assert_equal(page.content[0], Header("LOG A HUNTING TRIP"))
+
+
+def test_save_hunt() -> None:
+    """Test that a hunting trip is saved and counted."""
+
+    state = State([], "All Locations", "", 0, [])
+
+    page = save_hunt(
+        state,
+        "Oak Ridge",
+        "November 10",
+        "Morning hunt"
+    )
+
+    expected = State(
+        [],
+        "All Locations",
+        "",
+        1,
+        [Hunt("Oak Ridge", "November 10", "Morning hunt")]
+    )
+
+    assert_equal(page.state, expected)
+
+
+def test_stats_page() -> None:
+    """Test that the statistics page is displayed."""
+
+    state = State([], "All Locations", "", 0, [])
+    page = stats_page(state)
+
+    assert_equal(page.state, state)
+    assert_equal(page.content[0], Header("HUNTING STATISTICS"))
+
+
+# --------------------------------------------------
+# RUN ALL UNIT TESTS
+# --------------------------------------------------
+
+test_get_locations()
+test_get_matching_sightings()
+test_search_sightings()
+test_calculate_buck_statistics()
+
+test_index()
+test_sightings_page()
+test_add_sighting()
+test_save_sighting()
+test_locations_page()
+test_filter_location()
+test_search_page()
+test_run_search()
+test_clear_search()
+test_log_hunt()
+test_save_hunt()
+test_stats_page()
+
+
+# --------------------------------------------------
+# WEBSITE INFORMATION
+# --------------------------------------------------
+
+set_website_title("Deer Hunting Tracker")
+
+set_site_information(
+    "Your Name",
+    "A personal deer hunting journal for tracking sightings, "
+    "hunting locations, trips, and buck statistics.",
+    [],
+    "The website was planned around a hunting dashboard, "
+    "sighting journal, location filter, search tool, hunting "
+    "trip log, and statistics page.",
+    []
+)
+
+
+# --------------------------------------------------
+# START WEBSITE
+# --------------------------------------------------
+
+start_server(
+    State([], "All Locations", "", 0, [])
+)
